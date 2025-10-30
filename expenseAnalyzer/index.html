@@ -1,1 +1,564 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Salary & Expenses Analyzer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1100px;
+      margin: 30px auto;
+      background: linear-gradient(120deg, #ececec 0%, #f5f7fa 100%);
+    }
+    h2 {
+      margin-bottom: 12px;
+      color: #2462a0;
+      letter-spacing: 1px;
+      font-size: 1.6em;
+    }
+    label { display: block; margin: 10px 0 3px 0; font-size: 1em; }
+    .hint { font-size: 12px; color: #666;}
+    input[type="number"], select {
+      width:100%; font-size: 1.09em; padding: 7px; margin-top: 3px;
+      border: 1px solid #ccc; border-radius: 5px; transition: background 0.18s, outline 0.18s;
+      max-width: 260px;
+    }
+    input:focus, select:focus { outline: 2px solid #318cea; background: #eef6ff; }
+    .formcol, .charts, .results { box-shadow: 0 2px 8px rgba(180,180,180,0.10); border-radius: 12px; }
+    .formcol { min-width:320px; margin-right:40px; background: #fff; padding:18px; }
+    .charts { min-width:320px; margin-top:30px; background:#fff; padding:17px;}
+    .results { margin:22px 0 0 0; background:#f6fbff; border-radius:7px; padding:13px;}
+    button {
+      margin-top:18px; background: #318cea; color: #fff; border: none; border-radius: 5px;
+      padding: 12px 23px; font-weight: bold; font-size: 1.05em; cursor: pointer; transition: background 0.18s;
+    }
+    button:disabled { background: #ccc; color: #999; cursor: not-allowed;}
+    button:hover:enabled { background: #2462a0;}
+    #expenseList input, #expenseList select {
+      margin-bottom:5px; margin-right:10px; margin-top:5px; font-size:1em; padding:5px;
+      max-width:110px;
+    }
+    ul { margin-top: 8px; }
+    .charts { margin-bottom: 24px;}
+    .charts canvas { margin-bottom: 18px; width:100%!important; max-width:400px; height:224px!important;}
+    .results b { color: #318cea; font-size: 1.08em; }
+    .flex-wrap { display: flex; }
+    .warning { color: #d12020; font-weight: bold; margin: 6px 0 0 0;}
+    @media (max-width:900px) {
+      body { margin:6px; }
+      .flex-wrap { flex-direction: column; }
+      .formcol, .charts { min-width: unset; margin-right:0; width: 97vw; max-width: 97vw; padding-left:8px;padding-right:8px; }
+      .charts canvas { max-width:99vw;width:98vw;}
+    }
+    @media (max-width:600px) {
+      h2 { font-size: 1.27em; }
+      .formcol, .charts, .results { padding-left:2.5vw; padding-right:2.5vw;}
+      input,select,button { font-size:1em !important; }
+      label { font-size: .98em;}
+    }
+  </style>
+</head>
+<body>
+  <h2>Salary & Expenses Analyzer</h2>
+  <div class="flex-wrap">
+    <div class="formcol">
+      <form id="salaryForm">
+        <label>
+          Salary Amount Or Initial Funds:
+          <input type="number" id="salaryAmount" value="1200" min="1" oninput="salaryValidate()">
+        </label>
+        <span id="salaryWarning" class="warning" style="display:none;"></span>
+        <label>
+          Salary Frequency:
+          <select id="salaryFreq">
+            <option value="daily">Daily</option>
+            <option value="weekly" selected>Weekly</option>
+            <option value="monthly">Monthly</option>
+            <option value="yearly">Yearly</option>
+          </select>
+          <span class="hint">Enter gross salary at chosen frequency.</span>
+        </label>
+        <label>Savings Goal Amount:<input type="number" id="savingsAmount" value="200"></label>
+        <label>
+          Savings Frequency:
+          <select id="savingsFreq">
+            <option value="daily">Daily</option>
+            <option value="weekly" selected>Weekly</option>
+            <option value="monthly">Monthly</option>
+            <option value="yearly">Yearly</option>
+          </select>
+          <span class="hint">How much you want to save at that frequency.</span>
+        </label>
+        <label>Expenses (adjust names/amounts):<br>
+          <div id="expenseList">
+            <div style="margin-bottom:5px;">
+              <input type="text" value="Rent" class="expName"><input type="number" value="400" class="expAmt">
+              <select class="expFreq">
+                <option value="daily">Daily</option>
+                <option value="weekly" selected>Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+              <button type="button" onclick="this.parentNode.remove()">Remove</button>
+            </div>
+            <div style="margin-bottom:5px;">
+              <input type="text" value="Groceries" class="expName"><input type="number" value="150" class="expAmt">
+              <select class="expFreq">
+                <option value="daily">Daily</option>
+                <option value="weekly" selected>Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+              <button type="button" onclick="this.parentNode.remove()">Remove</button>
+            </div>
+            <div style="margin-bottom:5px;">
+              <input type="text" value="Transport" class="expName"><input type="number" value="70" class="expAmt">
+              <select class="expFreq">
+                <option value="daily">Daily</option>
+                <option value="weekly" selected>Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+              <button type="button" onclick="this.parentNode.remove()">Remove</button>
+            </div>
+            <div style="margin-bottom:5px;">
+              <input type="text" value="Utilities" class="expName"><input type="number" value="45" class="expAmt">
+              <select class="expFreq">
+                <option value="daily">Daily</option>
+                <option value="weekly" selected>Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+              <button type="button" onclick="this.parentNode.remove()">Remove</button>
+            </div>
+            <div style="margin-bottom:5px;">
+              <input type="text" value="Eating Out" class="expName"><input type="number" value="40" class="expAmt">
+              <select class="expFreq">
+                <option value="daily">Daily</option>
+                <option value="weekly" selected>Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+              <button type="button" onclick="this.parentNode.remove()">Remove</button>
+            </div>
+            <div style="margin-bottom:5px;">
+              <input type="text" value="Entertainment" class="expName"><input type="number" value="35" class="expAmt">
+              <select class="expFreq">
+                <option value="daily">Daily</option>
+                <option value="weekly" selected>Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+              <button type="button" onclick="this.parentNode.remove()">Remove</button>
+            </div>
+          </div>
+          <button type="button" onclick="addExpense()">Add Expense</button>
+        </label>
+        <label>
+          Expense Breakdown Frequency:
+          <select id="expenseViewFreq">
+            <option value="daily">Daily</option>
+            <option value="weekly" selected>Weekly</option>
+            <option value="monthly">Monthly</option>
+            <option value="yearly">Yearly</option>
+          </select>
+        </label>
+        <button type="button" id="calcBtn">Calculate & Analyze</button>
+      </form>
+      <div class="results" id="results"></div>
+      <button type="button" id="exportBtn" style="margin-top:10px;">Export PDF</button>
+    </div>
+    <div class="charts">
+      <canvas id="pieChart"></canvas>
+      <canvas id="barChart"></canvas>
+      <canvas id="expenseBreakChart"></canvas>
+      <canvas id="curveFlowChart"></canvas>
+<div style="margin-top:15px; text-align:right; color:#2462a0; font-size:1.13em; font-weight:bold;">
+  Please DM stringdecosmo if this is working good for you.
+</div>
+     <div style="margin-top:24px; padding:17px 22px; background:linear-gradient(104deg,#f5f8fa 81%,#e5ecf7 100%); border-radius:12px; color:#235097; font-size:1.05em; box-shadow:0 2px 14px rgba(80,110,130,0.13); max-width:380px; float:right; border-left:4px solid #318cea;">
+  <div style="display:flex; align-items:center; gap:8px;">
+    <span style="font-size:1.3em;">🔒</span>
+    <b style="font-size:1.07em;">Privacy Note</b>
+  </div>
+  <div style="margin-top:8px; line-height:1.52;">
+    This app never stores, sends, or shares any financial data, personal details, or calculations.<br>
+    <span style="color:#318cea; font-weight:bold;">Everything runs 100% privately in your browser.</span>
+    <br>Your numbers are used only for instant analysis on your screen and remain entirely confidential.
+  </div>
+</div>
+
+    </div>
+  </div>
+<script>
+function freqToYearly(amount, freq) {
+  if(freq==='daily') return amount*365;
+  if(freq==='weekly') return amount*52;
+  if(freq==='monthly') return amount*12;
+  return amount*1;
+}
+function addExpense() {
+  const maxExpenses = 12;
+  const currentExpenses = document.querySelectorAll('#expenseList > div').length;
+  if (currentExpenses >= maxExpenses) {
+    alert("You can only add up to 12 expenses.");
+    return;
+  }
+  let el=document.createElement('div');
+  el.innerHTML=
+  `<div style="margin-bottom:5px;">
+    <input type="text" value="Other" class="expName">
+    <input type="number" value="20" class="expAmt">
+    <select class="expFreq">
+      <option value="daily">Daily</option>
+      <option value="weekly" selected>Weekly</option>
+      <option value="monthly">Monthly</option>
+      <option value="yearly">Yearly</option>
+    </select>
+    <button type="button" onclick="this.parentNode.remove()">Remove</button>
+  </div>`;
+  document.getElementById('expenseList').appendChild(el);
+}
+
+function getExpenseColor(i, amountPerc) {
+  const base=[
+    '#175cab','#d73333','#2ca958','#ddc81d','#6e2eb3','#f68c20',
+    '#de4eaa','#45877e','#7a5f25','#1da9a2','#b48229','#7d2fd8','#ad3232'
+  ];
+  let col=base[i%base.length];
+  if (amountPerc<0.6) col = adjustColor(col,0.6+0.4*amountPerc);
+  return col;
+}
+function adjustColor(hex, amt){
+  hex=hex.replace('#','');
+  let r=parseInt(hex.substring(0,2),16);
+  let g=parseInt(hex.substring(2,4),16);
+  let b=parseInt(hex.substring(4,6),16);
+  let factor=amt;
+  r=Math.round(r+(230-r)*factor);g=Math.round(g+(230-g)*factor);b=Math.round(b+(230-b)*factor);
+  return `rgb(${r},${g},${b})`;
+}
+let pieChart, barChart, expenseBreakChart, curveFlowChart;
+function analyze() {
+  let salary=+document.getElementById('salaryAmount').value;
+
+  if (!salary || salary<=0 || isNaN(salary)) {
+    document.getElementById('results').innerHTML = "<b style='color:#d12020'>Salary must be > 0 to analyze.</b>";
+    if(pieChart) pieChart.destroy();
+    if(barChart) barChart.destroy();
+    if(expenseBreakChart) expenseBreakChart.destroy();
+    if(curveFlowChart) curveFlowChart.destroy();
+    return;
+  }
+  let sfreq=document.getElementById('salaryFreq').value;
+  let salaryYear=freqToYearly(salary,sfreq);
+
+  let save=parseFloat(document.getElementById('savingsAmount').value)||0;
+  let savefreq=document.getElementById('savingsFreq').value;
+  let saveYear=freqToYearly(save,savefreq);
+
+  let names=[], amts=[], freqs=[];
+  document.querySelectorAll("#expenseList .expName").forEach(e=>names.push(e.value));
+  document.querySelectorAll("#expenseList .expAmt").forEach(e=>amts.push(+e.value||0));
+  document.querySelectorAll("#expenseList .expFreq").forEach(e=>freqs.push(e.value));
+  let totExpYear=0;
+  let expBreakdown=[];
+  for(let i=0;i<names.length;i++){
+    let amtYear=freqToYearly(amts[i],freqs[i]);
+    totExpYear+=amtYear;
+    expBreakdown.push({name:names[i], amount:amtYear});
+  }
+
+  let maxPossibleSavings = salaryYear - totExpYear;
+  let savingsDisplay = Math.min(saveYear, maxPossibleSavings);
+  let savingsIsNegative = (maxPossibleSavings < 0);
+  let rem = salaryYear - savingsDisplay - totExpYear;
+
+  let savePerc=(saveYear/salaryYear)*100;
+  let results=`<b>Annualized Salary:</b> ${salaryYear.toLocaleString()}<br>`;
+  results+=`<b>Savings Goal:</b> ${saveYear.toLocaleString()} (${savePerc.toFixed(1)}%)<br>`;
+  results+=`<b>Total Annual Expenses:</b> ${totExpYear.toLocaleString()} (${(totExpYear/salaryYear*100).toFixed(1)}%)<br>`;
+  if (maxPossibleSavings < 0) {
+    results+=`<b style='color:#d12020'>ERROR: Your expenses exceed your salary. No savings possible!</b><br>`;
+  } else if (saveYear > maxPossibleSavings) {
+    results+=`<b style='color:#d12020'>Savings goal too high; actual possible saving is ${maxPossibleSavings.toLocaleString()}.</b><br>`;
+  } else {
+    results+=`<b>Actual Saving Possible:</b> ${savingsDisplay.toLocaleString()}<br>`;
+  }
+  if (rem < 0) {
+    results+=`<b style='color:#d12020'>Negative Remaining: ${rem.toLocaleString()} - you are budgeting more than you earn!</b><br><br>`;
+  } else {
+    results+=`<b>Remaining for Discretionary/Other:</b> ${rem.toLocaleString()}<br><br>`;
+  }
+
+  let sorted=expBreakdown.slice().sort((a,b)=>b.amount-a.amount);
+  let sortedTotal=sorted.reduce((sum,e)=>sum+e.amount,0);
+  let sortedNames=sorted.map(e=>e.name);
+  let sortedAmounts=sorted.map(e=>e.amount);
+
+  results+=`<b>Expense Breakdown by % of Salary:</b><ul>`;
+  sorted.forEach(e=>{
+    results+=`<li>${e.name}: ${e.amount.toLocaleString()} (${(e.amount/salaryYear*100).toFixed(1)}%)</li>`;
+  });
+  results+="</ul>";
+
+  // --- Correction block starts here ---
+  if (maxPossibleSavings < 0) {
+    let suggest='',cum=rem;
+    for(let i=0;i<sorted.length;i++){
+      cum+=sorted[i].amount;
+      suggest+=`<li>Reduce <b>${sorted[i].name}</b> (${sorted[i].amount.toLocaleString()} / ${((sorted[i].amount/salaryYear)*100).toFixed(1)}%)</li>`;
+      if(cum>0) break;
+    }
+    results+=`<hr><b>EXPENSES ABOVE YOUR INCOME!<br>For more savings (or any saving), you must cut these costs:</b><ul>${suggest}</ul>`;
+  } else if (saveYear <= maxPossibleSavings && saveYear > 0) {
+    results+=`<hr><b>Saving meets goal!<br>For more savings, reduce:</b><ul>`;
+    sorted.forEach(e=>{
+      results+=`<li>${e.name} (${e.amount.toLocaleString()} / ${(e.amount/salaryYear*100).toFixed(1)}%)</li>`;
+    });
+    results+="</ul>";
+  } else {
+    results+=`<hr><b>Your savings goal is not met.<br>To reach your desired savings, reduce:</b><ul>`;
+    sorted.forEach(e=>{
+      results+=`<li>${e.name} (${e.amount.toLocaleString()} / ${(e.amount/salaryYear*100).toFixed(1)}%)</li>`;
+    });
+    results+="</ul>";
+  }
+  // --- Correction block ends here ---
+
+  document.getElementById('results').innerHTML=results;
+
+  // PIE
+  let pieLabels = sortedNames.concat('Savings','Remaining');
+  let pieData = sortedAmounts.concat(savingsIsNegative ? 0 : savingsDisplay, rem < 0 ? Math.abs(rem): rem);
+  let pieColors=[];
+  for(let i=0;i<sortedAmounts.length;i++){
+    let perc=sortedAmounts[i]/sortedTotal;
+    pieColors.push(getExpenseColor(i,perc));
+  }
+  pieColors = pieColors.concat(savingsIsNegative ? '#e84141' : '#33a958', rem < 0 ? '#e84141' : '#cccccc');
+
+  if(pieChart) pieChart.destroy();
+  pieChart = new Chart(document.getElementById('pieChart').getContext('2d'), {
+    type:'pie',
+    data:{labels:pieLabels,
+      datasets:[{data:pieData, backgroundColor:pieColors}]},
+    options:{
+      plugins:{
+        legend:{display:true},
+        title:{display:true, text:"Annualized Salary Allocation (%)"}
+      }
+    }
+  });
+
+  // BAR
+  let barLabels = pieLabels.slice();
+  let barData = sortedAmounts.concat(savingsIsNegative ? maxPossibleSavings : savingsDisplay, rem);
+  let barColors = [];
+  for(let i=0;i<sortedAmounts.length;i++){
+    let perc=sortedAmounts[i]/sortedTotal;
+    barColors.push(getExpenseColor(i,perc));
+  }
+  barColors.push(savingsIsNegative ? '#e84141' : '#33a958');
+  barColors.push(rem < 0 ? '#e84141' : '#cccccc');
+  if(barChart) barChart.destroy();
+  barChart = new Chart(document.getElementById('barChart').getContext('2d'), {
+    type:'bar',
+    data:{labels:barLabels, datasets:[{label:'Annual Amount', data:barData, backgroundColor:barColors}]},
+    options:{
+      maintainAspectRatio:true,
+      plugins:{title:{display:true, text:"Annual Salary/Expense Breakdown"}},
+      scales:{
+        y:{
+          beginAtZero:true,
+          title:{display:true,text:'Annual Amount'}
+        },
+        x:{
+          grid: {
+            borderColor: '#000',
+            borderWidth: 4
+          }
+        }
+      }
+    }
+  });
+
+  // Expense breakdown by chosen frequency
+  const expenseViewFreq = document.getElementById('expenseViewFreq').value;
+  function toSelectedFreq(amount, fromFreq, toFreq) {
+    let dailyAmount;
+    if (fromFreq === 'daily') dailyAmount = amount;
+    else if (fromFreq === 'weekly') dailyAmount = amount / 7;
+    else if (fromFreq === 'monthly') dailyAmount = amount / 30.4375;
+    else dailyAmount = amount / 365;
+    if (toFreq === 'daily') return dailyAmount;
+    else if (toFreq === 'weekly') return dailyAmount * 7;
+    else if (toFreq === 'monthly') return dailyAmount * 30.4375;
+    else return dailyAmount * 365;
+  }
+  const convertedAmounts = amts.map((a,i) => toSelectedFreq(a, freqs[i], expenseViewFreq));
+  const freqChartLabel = {
+    daily: "Expense Breakdown Per Day",
+    weekly: "Expense Breakdown Per Week",
+    monthly: "Expense Breakdown Per Month",
+    yearly: "Expense Breakdown Per Year"
+  }[expenseViewFreq];
+
+  if (expenseBreakChart) expenseBreakChart.destroy();
+  expenseBreakChart = new Chart(document.getElementById('expenseBreakChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: names,
+      datasets: [{
+        label: freqChartLabel,
+        data: convertedAmounts,
+        backgroundColor: names.map((n,i) => getExpenseColor(i,1/names.length))
+      }]
+    },
+    options: {
+      plugins:{title:{display:true, text:freqChartLabel}},
+      scales:{
+        y:{
+          beginAtZero:true,
+          title:{display:true, text:freqChartLabel}
+        },
+        x:{
+          grid:{
+            borderColor: '#000',
+            borderWidth: 4
+          }
+        }
+      }
+    }
+  });
+
+  // Curve graph for cumulative savings & expenses
+  const curvePeriods = 12;
+  const periodDays = {daily: 1, weekly: 7, monthly: 30.4375, yearly: 365}[expenseViewFreq];
+  const salaryPerPeriod = freqToYearly(salary, sfreq) / (365 / periodDays);
+  const savingsPerPeriod = freqToYearly(save, savefreq) / (365 / periodDays);
+  let expensesPerPeriod = 0;
+  for(let i=0; i<amts.length; i++) {
+    expensesPerPeriod += freqToYearly(amts[i], freqs[i]) / (365 / periodDays);
+  }
+  let savingsPoints=[], expensePoints=[], labels=[];
+  let cumulativeSavings=0, cumulativeExpenses=0;
+  for(let i=1; i<=curvePeriods; i++) {
+    cumulativeExpenses += expensesPerPeriod;
+    cumulativeSavings += Math.max(0, salaryPerPeriod - expensesPerPeriod);
+    labels.push(expenseViewFreq.charAt(0).toUpperCase()+expenseViewFreq.slice(1) + " " + i);
+    expensePoints.push(Math.round(cumulativeExpenses));
+    savingsPoints.push(Math.round(cumulativeSavings));
+  }
+  if (curveFlowChart) curveFlowChart.destroy();
+  curveFlowChart = new Chart(document.getElementById('curveFlowChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: "Cumulative Savings",
+          data: savingsPoints,
+          borderColor: "#33a958",
+          fill: false,
+          tension: 0.4,
+          pointRadius: 3
+        },
+        {
+          label: "Cumulative Expenses",
+          data: expensePoints,
+          borderColor: "#d73333",
+          fill: false,
+          tension: 0.4,
+          pointRadius: 3
+        }
+      ]
+    },
+    options: {
+      plugins: {
+        title: {
+          display: true,
+          text: `Cumulative Savings & Expenses Flow (${expenseViewFreq})`
+        },
+        legend:{display:true}
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: { display: true, text: "Amount" }
+        },
+        x:{
+          grid:{
+            borderColor: '#000',
+            borderWidth: 3
+          }
+        }
+      }
+    }
+  });
+}
+function salaryValidate() {
+  let val=+document.getElementById('salaryAmount').value;
+  let warn=document.getElementById('salaryWarning');
+  let btn=document.getElementById('calcBtn');
+  if(!val || val<=0 || isNaN(val)){
+    warn.textContent='WARNING: Salary amount cannot be zero or empty.';
+    warn.style.display='block';
+    btn.disabled=true;
+  }else{
+    warn.textContent='';
+    warn.style.display='none';
+    btn.disabled=false;
+  }
+}
+document.getElementById('calcBtn').addEventListener('click', analyze);
+document.getElementById('salaryAmount').addEventListener('input', salaryValidate);
+document.getElementById('expenseViewFreq').addEventListener('change', analyze);
+window.onload=function(){ salaryValidate(); analyze(); };
+
+document.getElementById('exportBtn').addEventListener('click', function() {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({orientation:'p',unit:'pt',format:'a4'});
+  pdf.setFontSize(20);
+  pdf.text("Salary & Expenses Analyzer", pdf.internal.pageSize.getWidth()/2, 40, {align: 'center'});
+
+  const resultsNode = document.getElementById('results');
+  const pieNode = document.getElementById('pieChart');
+  const barNode = document.getElementById('barChart');
+  const expenseBreakNode = document.getElementById('expenseBreakChart');
+  const curveNode = document.getElementById('curveFlowChart');
+  html2canvas(resultsNode).then(function(canvasResults){
+    const imgResults = canvasResults.toDataURL('image/png');
+    let y = 60;
+    pdf.addImage(imgResults, 'PNG', 40, y, 515, 0);
+    y += canvasResults.height + 20;
+
+    const imgPie = pieNode.toDataURL('image/png', 1.0);
+    pdf.text("Annualized Salary Allocation (%)", pdf.internal.pageSize.getWidth()/2, y + 20, {align: 'center',});
+    pdf.addImage(imgPie, 'PNG', 115, y+40, 320, 200);
+    y += 270;
+
+    const imgBar = barNode.toDataURL('image/png', 1.0);
+    pdf.text("Annual Salary/Expense Breakdown", pdf.internal.pageSize.getWidth()/2, y + 20, {align: 'center',});
+    pdf.addImage(imgBar, 'PNG', 115, y+40, 320, 200);
+    y += 270;
+
+    const imgExpBreak = expenseBreakNode.toDataURL('image/png', 1.0);
+    pdf.text(document.getElementById('expenseViewFreq').selectedOptions[0].text + " Expense Breakdown", pdf.internal.pageSize.getWidth()/2, y + 20, {align: 'center',});
+    pdf.addImage(imgExpBreak, 'PNG', 115, y+40, 320, 200);
+    y += 270;
+
+    const imgCurve = curveNode.toDataURL('image/png', 1.0);
+    pdf.text(`Cumulative Savings & Expenses Flow (${document.getElementById('expenseViewFreq').value})`, pdf.internal.pageSize.getWidth()/2, y + 20, {align: 'center',});
+    pdf.addImage(imgCurve, 'PNG', 115, y+40, 320, 200);
+
+    pdf.save('salary-expense-analysis.pdf');
+  });
+});
+</script>
+</body>
+</html>
 

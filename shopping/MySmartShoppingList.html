@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>🛒 Smart Shopping List</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap">
+  <style>
+    html, body { height:100%; margin:0; padding:0;}
+    body { 
+      font-family: 'Inter', Arial, sans-serif;
+      background: linear-gradient(120deg, #f8f8fb 65%, #e6efff 100%);
+      max-width: 680px; margin:0 auto; min-height:100vh;
+      box-sizing: border-box;
+      padding: 10vw 0 24vw 0;
+    }
+    @media (max-width: 600px) {
+      body { max-width:100vw;padding:2vw 0 18vw 0;}
+      .add-box, .main { border-radius:0;}
+    }
+    h2 { color: #2462a0; font-size: 2.1em; margin-bottom: 14px; text-align: center;}
+    .add-box { background: #fff; border-radius: 14px; box-shadow: 0 3px 14px rgba(29,129,120,.06); padding:19px 10px 10px 10px; margin:0 2vw 22px 2vw;}
+    label { display:block; margin:14px 0 4px 0; font-weight:600; font-size:1em; }
+    input,select,button { font-size:1.09em; padding:10px; border-radius:7px; border:1.5px solid #e3e6ea; box-sizing:border-box; width:100%; margin-bottom:8px; }
+    input:focus,select:focus { outline: 2px solid #318cea; background:#ecf6ff; }
+    button[type="submit"] { background: linear-gradient(90deg,#318cea 80%,#6e2eb3 100%); color: #fff; border: none; font-weight:700; padding: 13px 0; font-size:1.1em; margin-top:10px; border-radius:8px; box-shadow:0 0.5px 1px #0001; }
+    .section-title {font-size:1.14em;color:#2462a0;margin:24px 0 7px 2vw;}
+    ul { list-style:none; padding:0; margin:0 0 10px 0; }
+    li { 
+      background:#fff; margin-bottom:12px; padding:16px 10px 16px 14px; border-radius:8px; 
+      box-shadow:0 2px 12px #dfdfdf25; display:flex;align-items:center;justify-content:space-between;
+      transition:box-shadow 0.22s;
+      flex-wrap:wrap;
+    }
+    .shop-label { font-size:1.01em; color:#3298c8;font-weight:700; margin-bottom:2px;margin-right:7px;}
+    .itemname { font-size:1.12em; font-weight:600; letter-spacing:.01em;}
+    .bought { text-decoration:line-through; color:#aaa; background:#e9f2eb;}
+    .mark-btn, .remove-btn, .rename-btn { 
+      border:none;padding:11px 13px; border-radius:7px; cursor:pointer; margin-top:4px;
+      display:inline-block; width:38px; font-size:1.17em;
+      transition: background .16s, color .13s;
+    }
+    .mark-btn { background: #33c06e; color:#fff; }
+    .remove-btn { background: #fc6767; color: #fff;}
+    .rename-btn { background: #fee68a; color: #ad8404; }
+    .action-group{ display:flex; align-items:center; gap:7px; margin-left:5px;}
+    .modal-bg { position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(36,98,160,0.12);display:none;align-items:center;justify-content:center;z-index:99;}
+    .modal { background:#fff; padding:21px 10px 18px 10px; border-radius:11px;width:94vw;max-width:340px;box-shadow:0 9px 35px #3337; border-top:5px solid #318cea;}
+    .modal-btns { display:flex;justify-content:space-evenly;gap:3vw;margin-top:10px;}
+    .modal input { width:99%; margin-top:7px; font-size:1.1em;}
+    #renameSection{margin-top:13px;}
+    .icon{ font-size:1.23em; margin-right:7px;}
+    @media(max-width:435px){
+      .itemname{font-size:1em;}
+      .shop-label{font-size:0.98em;}
+      .modal{max-width:99vw;}
+    }
+  </style>
+</head>
+<body>
+  <h2>🛒 Shopping List</h2>
+  <div class="add-box">
+    <form id="addForm" autocomplete="off">
+      <label>Item <input id="itemName" required placeholder="e.g. Apples" autocapitalize="words"/></label>
+      <label>Shop <input id="shopName" required placeholder="e.g. Coles" autocapitalize="words"/></label>
+      <button type="submit">Add</button>
+    </form>
+  </div>
+  <div class="main">
+    <div class="section-title"><span class="icon">📝</span>To Buy</div>
+    <ul id="itemList"></ul>
+    <div class="section-title"><span class="icon">✅</span>Bought</div>
+    <ul id="boughtList"></ul>
+  </div>
+
+  <!-- Modal for Duplicates and Management -->
+  <div id="modalBg" class="modal-bg">
+    <div class="modal">
+      <div id="modalMsg" style="font-size:1.08em;padding-bottom:6px;text-align:center">Item already in the list.</div>
+      <div class="modal-btns main-btns">
+        <button id="removeExisting" class="remove-btn" style="width:auto;">Remove</button>
+        <button id="renameExisting" class="rename-btn" style="width:auto;">Rename</button>
+        <button id="closeModal" class="mark-btn" style="width:auto;">Close</button>
+      </div>
+      <div id="renameSection" style="display:none;text-align:center">
+        <input id="renameInput" placeholder="New item name">
+        <button id="submitRename" class="rename-btn" style="margin-top:9px;width:auto;"><b>✔</b> Save</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+let shoppingList = [];
+let boughtList = [];
+let duplicateIndex = -1;
+
+function renderLists() {
+  const itemUl = document.getElementById('itemList');
+  const boughtUl = document.getElementById('boughtList');
+  itemUl.innerHTML = '';
+  boughtUl.innerHTML = '';
+  shoppingList.forEach((item, i) => {
+    let li = document.createElement('li');
+    li.innerHTML = `<div>
+      <span class="shop-label">🏬 ${item.shop}</span>
+      <span class="itemname">${item.name}</span>
+    </div>
+    <div class="action-group">
+      <button class="mark-btn" title="Mark bought" onclick="markBought(${i})">✓</button>
+      <button class="rename-btn" title="Rename item" onclick="startInlineRename(${i})">✎</button>
+      <button class="remove-btn" title="Remove item" onclick="removeItem(${i})">🗑</button>
+    </div>`;
+    itemUl.appendChild(li);
+  });
+  boughtList.forEach((item, i) => {
+    let li = document.createElement('li');
+    li.className = "bought";
+    li.innerHTML = `<div>
+      <span class="shop-label">🏬 ${item.shop}</span>
+      <span class="itemname">${item.name}</span>
+    </div>`;
+    boughtUl.appendChild(li);
+  });
+}
+
+// Handle Form Submit
+document.getElementById("addForm").onsubmit = function(e){
+  e.preventDefault();
+  let name = document.getElementById('itemName').value.trim();
+  let shop = document.getElementById('shopName').value.trim();
+  if(!name || !shop) return;
+  const idx = shoppingList.findIndex(x => x.name.toLowerCase() === name.toLowerCase());
+  if(idx !== -1){
+    duplicateIndex = idx;
+    document.getElementById('modalBg').style.display = 'flex';
+    document.getElementById('renameSection').style.display = 'none';
+    document.getElementById('renameInput').value = '';
+    return;
+  }
+  shoppingList.push({name, shop});
+  renderLists();
+  this.reset();
+};
+
+// Mark as bought
+window.markBought = function(idx) {
+  const item = shoppingList[idx];
+  shoppingList.splice(idx,1);
+  boughtList.push(item);
+  renderLists();
+};
+// Inline rename
+window.startInlineRename = function(idx){
+  let newName = prompt("Rename item:", shoppingList[idx].name);
+  if (newName) {
+    if (shoppingList.findIndex(x => x.name.toLowerCase() === newName.toLowerCase()) !== -1) {
+      alert("That name is already in the list!");
+    } else {
+      shoppingList[idx].name = newName.trim();
+      renderLists();
+    }
+  }
+};
+// Remove
+window.removeItem = function(idx){
+  shoppingList.splice(idx, 1);
+  renderLists();
+};
+
+// Modal logic
+document.getElementById('removeExisting').onclick = function(){
+  if(duplicateIndex!==-1){
+    shoppingList.splice(duplicateIndex,1);
+    duplicateIndex = -1;
+    renderLists();
+  }
+  document.getElementById('modalBg').style.display = 'none';
+};
+document.getElementById('renameExisting').onclick = function(){
+  document.getElementById('renameSection').style.display = 'block';
+  document.getElementById('renameInput').focus();
+};
+document.getElementById('submitRename').onclick = function(){
+  let newName = document.getElementById('renameInput').value.trim();
+  if(newName && duplicateIndex!==-1){
+    if(shoppingList.findIndex(x => x.name.toLowerCase() === newName.toLowerCase()) !== -1){
+      alert("That name is already in the list!");
+      return;
+    }
+    shoppingList[duplicateIndex].name = newName;
+    renderLists();
+  }
+  document.getElementById('modalBg').style.display = 'none';
+  duplicateIndex = -1;
+  document.getElementById('renameSection').style.display = 'none';
+};
+document.getElementById('closeModal').onclick = function(){
+  document.getElementById('modalBg').style.display = 'none';
+  document.getElementById('renameSection').style.display = 'none';
+  duplicateIndex = -1;
+};
+</script>
+</body>
+</html>

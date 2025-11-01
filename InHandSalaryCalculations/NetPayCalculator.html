@@ -1,1 +1,233 @@
-WIP
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Australian Pay Calculator (2025)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    body {font-family:sans-serif;background:#f1f7fb;max-width:540px;margin:28px auto;padding:2vw;}
+    .card {background:#fff;border-radius:16px;box-shadow:0 2px 16px #90a7b828;padding:25px;margin-bottom:24px;}
+    h2 {color:#2e5daa;text-align:center;margin-bottom:21px;}
+    label {font-weight:600;display:block;margin:14px 0 4px 0;}
+    input, select {width:100%;font-size:1em;padding:11px 13px;margin-bottom:11px;border-radius:9px;border:1px solid #c3d2eb;}
+    input[type="checkbox"] {width:auto;display:inline-block;margin-right:8px;}
+    .chklabel {margin-left:2px;font-weight:400;color:#324f67;font-size:.99em;}
+    button {background:#2e5daa;color:#fff;padding:15px 0;border:none;border-radius:10px;width:100%;font-weight:600;font-size:1.16em;cursor:pointer;margin-top:8px;}
+    #result summary {margin-top:21px;}
+    .summary {background:#edf7fc;border-radius:14px;box-shadow:0 2px 8px #90a7b828;padding:16px 16px 8px;margin-bottom:14px;}
+    .bracket {font-size:0.99em;color:#1667c9;margin-top:2px;margin-bottom:5px;}
+    .levy {font-size:0.97em;color:#910f53;}
+    .gross {color:#234cce;font-weight:600;}
+    .net {color:#149246;font-weight:600;}
+    .tax {color:#e98500;}
+    .super {color:#415ca1;}
+    .hint {font-size:0.97em;color:#687e95;margin-bottom:12px;}
+    .cycle-head {color:#264fa6;font-size:1.14em;font-weight:600;margin:8px 0 4px;}
+    .row {display:flex;justify-content:space-between;align-items:center;padding:7px 0;}
+    @media (max-width:600px) {body{max-width:99vw;padding:1vw;}.card{padding:9px;}.summary{padding:9px;}.row{padding:3px 0;}}
+  </style>
+</head>
+<body>
+  <h2>Australian Pay Calculator (2025)</h2>
+  <div class="card">
+    <form id="payForm">
+      <label>Role:
+        <select id="role">
+          <option value="fulltime">Full Time (38hr/week)</option>
+          <option value="casual">Casual</option>
+          <option value="permanent">Permanent Part Time</option>
+        </select>
+      </label>
+      <div class="hint" id="hoursHint"></div>
+      <label>Pay Cycle:
+        <select id="cycle">
+          <option value="annual">Annual</option>
+          <option value="monthly">Monthly</option>
+          <option value="fortnightly">Fortnightly</option>
+          <option value="weekly">Weekly</option>
+          <option value="daily">Daily</option>
+          <option value="hourly">Hourly</option>
+        </select>
+      </label>
+      <label>Input Type:
+        <select id="inputType">
+          <option value="hourly">Hourly Rate</option>
+          <option value="annual">Annual Salary</option>
+        </select>
+      </label>
+      <label id="hourlyLabel">Hourly Rate (AUD): <input type="number" id="hourly" min="20" max="200" step="0.01"></label>
+      <label id="annualLabel" style="display:none;">Annual Salary (AUD): <input type="number" id="annual" min="20000" max="300000"></label>
+      <label>Weekly Hours: <input type="number" id="hours" min="5" max="60" value="38"></label>
+      <label>Superannuation Rate (%): <input type="number" id="super" min="8" max="15" value="11"></label>
+      <label style="margin-top:7px;">
+        <input type="checkbox" id="superIncluded" checked>
+        <span class="chklabel">Salary includes super</span>
+      </label>
+      <label style="margin-top:7px;">
+        <input type="checkbox" id="disableSuper">
+        <span class="chklabel">No Superannuation (disable)</span>
+      </label>
+      <button type="submit">Calculate</button>
+    </form>
+    <div id="result"></div>
+  </div>
+<script>
+// Role defaults
+const HOURS_HINT = {
+  fulltime: 38,
+  casual: 20,
+  permanent: 32
+};
+const ROLE_HINT_TEXT = {
+  fulltime: "Standard full time: 38 hours/week.",
+  casual: "Casual: 15-25 hours/week (edit as needed).",
+  permanent: "Permanent PT: usually 20-34 hours/week."
+}
+
+document.getElementById('role').onchange = function(){
+  let val = this.value;
+  let hoursInp = document.getElementById('hours');
+  hoursInp.value = HOURS_HINT[val];
+  document.getElementById('hoursHint').textContent = ROLE_HINT_TEXT[val];
+  hoursInp.placeholder = (val==="fulltime" ? "38" : val==="casual" ? "20" : "32");
+};
+document.getElementById('role').dispatchEvent(new Event('change'));
+
+document.getElementById('inputType').onchange = function(){
+  let val = this.value;
+  document.getElementById('hourlyLabel').style.display = (val === 'hourly') ? "" : "none";
+  document.getElementById('annualLabel').style.display = (val === 'annual') ? "" : "none";
+};
+
+// Disable super controls when "No Super" is selected
+const disableSuperCheckbox = document.getElementById('disableSuper');
+const superIncludedCheckbox = document.getElementById('superIncluded');
+const superRateInput = document.getElementById('super');
+
+disableSuperCheckbox.addEventListener('change', function() {
+  if (this.checked) {
+    superIncludedCheckbox.checked = false;
+    superIncludedCheckbox.disabled = true;
+    superRateInput.value = 0;
+    superRateInput.disabled = true;
+  } else {
+    superIncludedCheckbox.disabled = false;
+    superRateInput.disabled = false;
+    if (superRateInput.value == 0) superRateInput.value = 11;
+  }
+});
+
+const CYCLE_LABELS = {
+  annual:"Annually", monthly:"Monthly", fortnightly:"Fortnightly", weekly:"Weekly", daily:"Daily", hourly:"Hourly"
+};
+const CYCLE_DIV = {annual:1, monthly:12, fortnightly:26, weekly:52, daily:261, hourly:1976};
+
+function calcTaxBracket(income) {
+  if(income<=18200) return "0% (Tax Free up to $18,200)";
+  else if(income<=45000) return "19% ($18,201-$45,000)";
+  else if(income<=120000) return "32.5% ($45,001-$120,000)";
+  else if(income<=180000) return "37% ($120,001-$180,000)";
+  else return "45% ($180,001+)";
+}
+function calcTax(income) {
+  let tax=0;
+  if(income<=18200) tax=0;
+  else if(income<=45000) tax=(income-18200)*0.19;
+  else if(income<=120000) tax=5092+(income-45000)*0.325;
+  else if(income<=180000) tax=29467+(income-120000)*0.37;
+  else tax=51667+(income-180000)*0.45;
+  return tax;
+}
+function calcMedicare(income) { return income * 0.02; }
+
+document.getElementById('payForm').onsubmit = function(e){
+  e.preventDefault();
+  const role = document.getElementById('role').value;
+  const cycle = document.getElementById('cycle').value;
+  const inputType = document.getElementById('inputType').value;
+  const hourlyRate = parseFloat(document.getElementById('hourly').value || 0);
+  const annualSalary = parseFloat(document.getElementById('annual').value || 0);
+  let weeklyHours = parseFloat(document.getElementById('hours').value || 0);
+  let superRate = parseFloat(superRateInput.value || 0) / 100;
+  const superIncluded = superIncludedCheckbox.checked;
+  const disableSuper = disableSuperCheckbox.checked;
+
+  // Disable super if checked
+  if (disableSuper) {
+    superRate = 0;
+  }
+
+  if(role === "fulltime") weeklyHours = 38;
+  if(weeklyHours < 5 || weeklyHours > 60) weeklyHours = HOURS_HINT[role];
+
+  // Gross salary adjustment for super inclusion
+  let grossInclSuper = 0, grossExclSuper = 0;
+  if(inputType === "annual"){
+    if(superIncluded && !disableSuper){
+      grossInclSuper = annualSalary;
+      grossExclSuper = annualSalary / (1 + superRate);
+    } else {
+      grossExclSuper = annualSalary;
+      grossInclSuper = annualSalary * (1 + superRate);
+    }
+  } else {
+    if(superIncluded && !disableSuper){
+      grossInclSuper = hourlyRate * weeklyHours * 52;
+      grossExclSuper = grossInclSuper / (1 + superRate);
+    } else {
+      grossExclSuper = hourlyRate * weeklyHours * 52;
+      grossInclSuper = grossExclSuper * (1 + superRate);
+    }
+  }
+
+  let taxableIncome = grossExclSuper;
+  let taxBracketText = calcTaxBracket(taxableIncome);
+  let tax = calcTax(taxableIncome);
+  let medicare = calcMedicare(taxableIncome);
+  let superann = grossExclSuper * superRate;
+  let net = taxableIncome - tax - medicare;
+  let netInclSuper = net + superann;
+
+  // Cycle period
+  let divisor = CYCLE_DIV[cycle];
+  let grossPeriod = grossExclSuper / divisor;
+  let netPeriod = net / divisor;
+  let taxPeriod = tax / divisor;
+  let medicarePeriod = medicare / divisor;
+  let superPeriod = superann / divisor;
+
+  let displaySuperMsg = "";
+  if (disableSuper) {
+    displaySuperMsg = "Superannuation is <b>disabled</b>.";
+  } else {
+    displaySuperMsg = (superIncluded) ? "Your entered salary/rate <b>includes</b> super." : "Superannuation <b>is added</b> on top of salary/rate.";
+  }
+  let inputLabel = (inputType==="annual")?(superIncluded?"Annual Package (Inc. Super)":"Annual Salary (Exc. Super)"):(superIncluded?"Hourly Rate (Inc. Super)":"Hourly Rate (Exc. Super)");
+
+  // Build results HTML
+  let superRowHTML = disableSuper
+    ? "" 
+    : `<div class="row super"><span>Superannuation:</span><span>$${superPeriod.toFixed(2)}</span></div>`;
+
+  document.getElementById('result').innerHTML = `
+    <div class="summary">
+      <b>${inputLabel}:</b> $${(inputType==="annual"?annualSalary:hourlyRate).toLocaleString()}<br>
+      <span style="color:#153d73;font-size:.97em;">${displaySuperMsg}</span>
+      <div class="bracket"><b>Tax Bracket:</b> ${taxBracketText}</div>
+      <div class="levy"><b>Medicare Levy: 2%</b> is applied to taxable salary <u>excluding super</u>: $${grossExclSuper.toLocaleString(undefined,{maximumFractionDigits:0})}</div>
+    </div>
+    <div class="cycle-head">Pay Summary (${CYCLE_LABELS[cycle]})</div>
+    <div class="row gross"><span>Gross Pay:</span><span>$${grossPeriod.toFixed(2)}</span></div>
+    <div class="row tax"><span>Tax:</span><span>$${taxPeriod.toFixed(2)}</span></div>
+    <div class="row tax"><span>Medicare:</span><span>$${medicarePeriod.toFixed(2)}</span></div>
+    ${superRowHTML}
+    <div class="row net"><span>Net (Take Home):</span><span>$${netPeriod.toFixed(2)}</span></div>
+    <div class="row gross"><span>Total Package (Inc. Super):</span><span>$${(grossInclSuper/divisor).toFixed(2)}</span></div>
+    <div class="hint" style="margin-top:14px;">
+      <b>Notes:</b> Tax and Medicare calculated on base salary. Super paid by employer, not taxed in net pay.<br>Brackets and levy rates apply for 2025. Adjust weekly hours for casual/PT as needed.
+    </div>
+  `;
+};
+</script>
+</body>
+</html>
